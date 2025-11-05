@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Marcador de Judo – Club</title>
+  <style>
+    :root{
+      --bg:#0b1020;          /* Fondo app */
+      --panel:#121a33;       /* Fondo panel */
+      --accent:#28d07d;      /* Acento (tiempo) */
+      --muted:#8aa0ff;       /* Titulares */
+      --blue:#1b58ff;        /* Judoka Azul */
+      --white:#f2f5ff;       /* Judoka Blanco */
+      --whiteText:#0b1020;   /* Texto sobre blanco */
+      --warn:#ffd34d;        /* Shido */
+      --danger:#ff4d4d;      /* Hansoku */
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji','Segoe UI Emoji', 'Segoe UI Symbol';
+      background:linear-gradient(180deg,var(--bg),#05070f 60%); color:#e7ebff;
+      display:grid; grid-template-columns: 420px 1fr; gap:18px; padding:18px; overflow:hidden;
+    }
+    /* Panel de control */
+    .panel{background:var(--panel); border:1px solid #1e2a55; border-radius:18px; padding:16px; overflow:auto;}
+    h1{margin:0 0 8px; font-size:20px; letter-spacing:0.3px; color:var(--muted)}
+    h2{margin:18px 0 8px; font-size:14px; text-transform:uppercase; color:#b9c6ff; letter-spacing:1.2px}
+    label{display:block; font-size:12px; color:#c7d3ff; margin:10px 0 4px}
+    input, select{
+      width:100%; padding:10px 12px; border-radius:12px; border:1px solid #2a3a72; background:#0f1833; color:#e7ebff;
+      outline:none; box-shadow: inset 0 0 0 1px transparent; transition:.15s ease; font-size:14px;
+    }
+    input:focus{box-shadow: inset 0 0 0 1px #7193ff}
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
+    .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px; border-radius:12px; border:1px solid #2a3a72; background:#0f1833; color:#e7ebff; cursor:pointer; user-select:none}
+    .btn:active{transform:translateY(1px)}
+    .btn.full{width:100%}
+    .btn.ghost{background:transparent}
+    .btn.green{background:#143c2c; border-color:#1f6a4d}
+    .btn.red{background:#3a1216; border-color:#6a1f28}
+    .btn.yellow{background:#3a2e12; border-color:#6a5420}
+    .section{border-top:1px dashed #223066; margin:16px -16px 0; padding:16px}
+    .small{font-size:12px; opacity:.8}
+    .kbd{font-family: ui-monospace, Menlo, Monaco, "SFMono-Regular", Consolas; background:#0b1430; padding:2px 6px; border-radius:6px; border:1px solid #24326b}
+
+    /* Vista previa mini del marcador dentro del panel */
+    .preview{border-radius:16px; border:1px solid #233067; overflow:hidden}
+
+    /* Marcador principal (también usado en la ventana Display) */
+    .scoreboard{
+      width:100%; height:100%; display:grid; grid-template-rows: 1fr auto; background:#000; font-weight:700;
+    }
+    .sb-top{display:grid; grid-template-columns:1fr 140px 1fr; height:100%}
+    .side{display:grid; grid-template-rows:60px 1fr 90px;}
+    .side.blue{background:var(--blue)}
+    .side.white{background:var(--white); color:var(--whiteText)}
+
+    .name{display:flex; align-items:center; justify-content:space-between; padding:8px 14px; font-size:28px; letter-spacing:.5px}
+    .club{font-size:16px; opacity:.9}
+    .abbr{font-size:20px; font-weight:900}
+
+    .points{display:flex; align-items:center; justify-content:center; font-size:160px}
+
+    .penalties{display:flex; align-items:center; justify-content:center; gap:12px}
+    .card{width:24px; height:36px; border-radius:4px; border:2px solid rgba(0,0,0,.25)}
+    .card.yellow{background:var(--warn)}
+    .card.red{background:var(--danger)}
+
+    .center{
+      background:#090909; color:var(--accent); display:grid; grid-template-rows: 60px 1fr 90px; align-items:center; text-align:center; border-left:4px solid #000; border-right:4px solid #000;
+    }
+    .meta{display:flex; align-items:center; justify-content:center; gap:14px; color:#a9ffd2; font-size:20px;}
+    .timer{font-size:160px; line-height:1;}
+    .weight{font-size:26px; color:#bfead6}
+
+    .sb-bottom{display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#0b0b0b; color:#9cd4ff; font-size:22px}
+
+    /* Bloques de control por lado */
+    .side-controls{border:1px solid #24326b; border-radius:14px; padding:12px}
+    .side-title{display:flex; align-items:center; justify-content:space-between}
+    .pill{padding:6px 10px; border-radius:999px; font-weight:700}
+    .pill.blue{background:rgba(27,88,255,.2); border:1px solid rgba(27,88,255,.6)}
+    .pill.white{background:rgba(255,255,255,.8); color:#101010; border:1px solid rgba(255,255,255,.6)}
+
+    .sc-row{display:grid; grid-template-columns: repeat(5, 1fr); gap:6px; margin-top:8px}
+    .badge{font-size:12px; opacity:.85}
+
+    .footer{opacity:.75; font-size:12px; margin-top:14px}
+    .split{display:grid; grid-template-columns:1fr auto; align-items:center; gap:8px}
+
+    @media (max-width: 1100px){
+      body{grid-template-columns:1fr; padding:10px}
+      .panel{order:2}
+    }
+  </style>
+</head>
+<body>
+  <!-- Panel de control -->
+  <aside class="panel" id="panel">
+    <h1>Marcador de Judo — Control</h1>
+
+    <h2>Datos del combate</h2>
+    <div class="row">
+      <div>
+        <label>Competidor Azul — Nombre</label>
+        <input id="blueName" placeholder="Apellido, Inicial" value="TORO SOLER J."/>
+      </div>
+      <div>
+        <label>Competidor Blanco — Nombre</label>
+        <input id="whiteName" placeholder="Apellido, Inicial" value="MANUKYAN R."/>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Club / Provincia (Azul)</label>
+        <input id="blueClub" placeholder="Club Azul" value="VAL"/>
+      </div>
+      <div>
+        <label>Club / Provincia (Blanco)</label>
+        <input id="whiteClub" placeholder="Club Blanco" value="NAV"/>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Peso / Categoría</label>
+        <input id="weight" placeholder="-66 kg" value="-66 kg"/>
+      </div>
+      <div>
+        <label>Ronda / Observación</label>
+        <input id="round" placeholder="Round 1" value="Round 1"/>
+      </div>
+    </div>
+
+    <h2>Tiempo</h2>
+    <div class="grid3">
+      <div>
+        <label>Minutos</label>
+        <input type="number" id="minutes" min="0" value="3" />
+      </div>
+      <div>
+        <label>Segundos</label>
+        <input type="number" id="seconds" min="0" max="59" value="0" />
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="btn full green" id="applyTime">Aplicar</button>
+      </div>
+    </div>
+    <div class="grid3" style="margin-top:8px">
+      <button class="btn" id="startStop">⏯️ Iniciar / Pausar <span class="badge">Espacio</span></button>
+      <button class="btn" id="add10">➕ 10s</button>
+      <button class="btn" id="sub10">➖ 10s</button>
+    </div>
+
+    <div class="section">
+      <div class="split">
+        <h2 style="margin:0">Puntuaciones</h2>
+        <span class="small">(No aplica reglas automáticas; tú decides Hansoku / Ippon)</span>
+      </div>
+
+      <!-- Controles Azul -->
+      <div class="side-controls" id="blueControls">
+        <div class="side-title"><strong>Azul</strong><span class="pill blue">AZUL</span></div>
+        <div class="sc-row">
+          <button class="btn" data-side="blue" data-type="yuko">+ Yuko</button>
+          <button class="btn" data-side="blue" data-type="waza">+ Wazari</button>
+          <button class="btn" data-side="blue" data-type="ippon">+ Ippon</button>
+          <button class="btn yellow" data-side="blue" data-type="shido">+ Shido</button>
+          <button class="btn red" data-side="blue" data-type="hansoku">Hansoku</button>
+        </div>
+        <div class="sc-row">
+          <button class="btn ghost" data-side="blue" data-type="yuko-">− Yuko</button>
+          <button class="btn ghost" data-side="blue" data-type="waza-">− Wazari</button>
+          <button class="btn ghost" data-side="blue" data-type="ippon-">− Ippon</button>
+          <button class="btn ghost" data-side="blue" data-type="shido-">− Shido</button>
+          <button class="btn ghost" data-side="blue" data-type="hansoku-">Quitar Hansoku</button>
+        </div>
+      </div>
+
+      <!-- Controles Blanco -->
+      <div class="side-controls" id="whiteControls" style="margin-top:10px">
+        <div class="side-title"><strong>Blanco</strong><span class="pill white">BLANCO</span></div>
+        <div class="sc-row">
+          <button class="btn" data-side="white" data-type="yuko">+ Yuko</button>
+          <button class="btn" data-side="white" data-type="waza">+ Wazari</button>
+          <button class="btn" data-side="white" data-type="ippon">+ Ippon</button>
+          <button class="btn yellow" data-side="white" data-type="shido">+ Shido</button>
+          <button class="btn red" data-side="white" data-type="hansoku">Hansoku</button>
+        </div>
+        <div class="sc-row">
+          <button class="btn ghost" data-side="white" data-type="yuko-">− Yuko</button>
+          <button class="btn ghost" data-side="white" data-type="waza-">− Wazari</button>
+          <button class="btn ghost" data-side="white" data-type="ippon-">− Ippon</button>
+          <button class="btn ghost" data-side="white" data-type="shido-">− Shido</button>
+          <button class="btn ghost" data-side="white" data-type="hansoku-">Quitar Hansoku</button>
+        </div>
+      </div>
+
+      <div class="grid3" style="margin-top:10px">
+        <button class="btn" id="resetScores">🔁 Reset Puntos</button>
+        <button class="btn" id="resetAll">🧹 Reset Todo</button>
+        <button class="btn" id="openDisplay">🖥️ Abrir Pantalla</button>
+      </div>
+      <div class="footer">Atajos: <span class="kbd">Espacio</span> iniciar/pausar · <span class="kbd">B</span>/<span class="kbd">N</span> +10/−10s</div>
+    </div>
+
+    <h2>Vista previa</h2>
+    <div class="preview" id="preview"></div>
+  </aside>
+
+  <!-- Área donde también mostramos el marcador dentro de la app (misma vista que la pantalla externa) -->
+  <section id="display" class="scoreboard" aria-label="Marcador"></section>
+
+  <script>
+    // ---------- Estado del partido ----------
+    const state = {
+      blue: { name:'TORO SOLER J.', club:'VAL', yuko:0, waza:0, ippon:0, shido:0, hansoku:false },
+      white:{ name:'MANUKYAN R.', club:'NAV', yuko:0, waza:0, ippon:0, shido:0, hansoku:false },
+      weight: '-66 kg',
+      round: 'Round 1',
+      secondsTotal: 3*60, // 3 minutos por defecto
+      running: false
+    };
+
+    let remaining = state.secondsTotal;
+    let timerId = null;
+    let childWin = null; // ventana del display externo
+
+    // ---------- Utilidades ----------
+    const pad = n => String(n).padStart(2,'0');
+    function formatTime(secs){
+      const m = Math.floor(secs/60), s = secs%60; return `${m}:${pad(s)}`;
+    }
+
+    // Persistencia simple
+    const persist = () => localStorage.setItem('judoScoreboard', JSON.stringify({state, remaining}));
+    const restore = () => {
+      try{
+        const raw = localStorage.getItem('judoScoreboard');
+        if(!raw) return;
+        const saved = JSON.parse(raw);
+        Object.assign(state, saved.state);
+        remaining = saved.remaining ?? state.secondsTotal;
+      }catch{ /* ignore */ }
+    };
+    restore();
+
+    // ---------- Render del marcador (reutilizable para preview y pantalla) ----------
+    function renderScoreboard(container){
+      container.innerHTML = `
+        <div class="sb-top">
+          <div class="side blue">
+            <div class="name">
+              <div class="club">${state.blue.club || ''}</div>
+              <div class="abbr">AZUL</div>
+            </div>
+            <div class="points">${scoreDisplay(state.blue)}</div>
+            <div class="penalties">${cards(state.blue)}</div>
+          </div>
+          <div class="center">
+            <div class="meta">${escapeHtml(state.round)} • <span class="weight">${escapeHtml(state.weight)}</span></div>
+            <div class="timer" id="timerText">${formatTime(remaining)}</div>
+            <div class="meta" style="opacity:.9">${escapeHtml(state.blue.name)} vs ${escapeHtml(state.white.name)}</div>
+          </div>
+          <div class="side white">
+            <div class="name">
+              <div class="abbr">BLANCO</div>
+              <div class="club">${state.white.club || ''}</div>
+            </div>
+            <div class="points">${scoreDisplay(state.white)}</div>
+            <div class="penalties">${cards(state.white)}</div>
+          </div>
+        </div>
+        <div class="sb-bottom">
+          <div>${escapeHtml(state.blue.name)}</div>
+          <div>Tiempo ${state.running ? '🟢' : '⏸️'}</div>
+          <div>${escapeHtml(state.white.name)}</div>
+        </div>`
+    }
+
+    function scoreDisplay(side){
+      // Muestra: (Y) (W) (I) con prioridad visual al total. Aquí mostramos suma visual compacta
+      const total = side.ippon ? 'IP' : (side.waza>0 ? `${side.waza}W` : (side.yuko>0 ? `${side.yuko}Y` : '0'));
+      return total;
+    }
+    function cards(side){
+      const y = Array.from({length: side.shido}, ()=>'<div class="card yellow"></div>').join('');
+      const r = side.hansoku ? '<div class="card red"></div>' : '';
+      return y + r;
+    }
+    function escapeHtml(s=''){return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
+
+    function broadcast(){
+      // Enviar estado a la ventana externa si existe
+      if(childWin && !childWin.closed){
+        childWin.postMessage({type:'STATE', state, remaining}, '*');
+      }
+    }
+
+    // ---------- Render inicial ----------
+    const display = document.getElementById('display');
+    const preview = document.getElementById('preview');
+    function fullRender(){
+      renderScoreboard(display);
+      renderScoreboard(preview);
+      persist();
+      broadcast();
+    }
+    fullRender();
+
+    // ---------- Lógica de tiempo ----------
+    function tick(){
+      if(!state.running) return;
+      if(remaining > 0){
+        remaining -= 1; updateTimerText();
+        persist(); broadcast();
+      } else {
+        stop();
+      }
+    }
+    function updateTimerText(){
+      document.querySelectorAll('#timerText').forEach(el=> el.textContent = formatTime(remaining));
+    }
+    function start(){ if(state.running) return; state.running = true; timerId = setInterval(tick, 1000); fullRender(); }
+    function stop(){ state.running = false; if(timerId){clearInterval(timerId); timerId=null;} fullRender(); }
+
+    // ---------- Controles de UI ----------
+    const $ = sel => document.querySelector(sel);
+    $('#applyTime').onclick = () => {
+      const m = +$('#minutes').value||0; const s = +$('#seconds').value||0;
+      state.secondsTotal = m*60 + s; remaining = state.secondsTotal; stop();
+    }
+    $('#startStop').onclick = () => state.running ? stop() : start();
+    $('#add10').onclick = () => { remaining = Math.min(59*60+59, remaining + 10); updateTimerText(); persist(); broadcast(); }
+    $('#sub10').onclick = () => { remaining = Math.max(0, remaining - 10); updateTimerText(); persist(); broadcast(); }
+
+    // Datos básicos
+    function bindInput(id, path){
+      const el = document.getElementById(id);
+      const [root, key] = path.split('.');
+      el.addEventListener('input', () => { state[root][key] = el.value; fullRender(); });
+      el.value = state[root][key];
+    }
+    bindInput('blueName','blue.name');
+    bindInput('blueClub','blue.club');
+    bindInput('whiteName','white.name');
+    bindInput('whiteClub','white.club');
+    document.getElementById('weight').addEventListener('input', e=>{state.weight=e.target.value; fullRender();});
+    document.getElementById('round').addEventListener('input', e=>{state.round=e.target.value; fullRender();});
+
+    // Botones de puntuación
+    function adjust(side, field, delta){
+      state[side][field] = Math.max(0, (state[side][field]||0) + delta);
+      fullRender();
+    }
+    function setHansoku(side, val){ state[side].hansoku = !!val; fullRender(); }
+
+    document.querySelectorAll('[data-side]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const side = btn.dataset.side, type = btn.dataset.type;
+        if(type==='yuko') return adjust(side,'yuko',+1);
+        if(type==='yuko-') return adjust(side,'yuko',-1);
+        if(type==='waza') return adjust(side,'waza',+1);
+        if(type==='waza-') return adjust(side,'waza',-1);
+        if(type==='ippon') return adjust(side,'ippon',+1);
+        if(type==='ippon-') return adjust(side,'ippon',-1);
+        if(type==='shido') return adjust(side,'shido',+1);
+        if(type==='shido-') return adjust(side,'shido',-1);
+        if(type==='hansoku') return setHansoku(side,true);
+        if(type==='hansoku-') return setHansoku(side,false);
+      });
+    });
+
+    // Reset
+    document.getElementById('resetScores').onclick = () => {
+      ['blue','white'].forEach(s=> {state[s].yuko=0; state[s].waza=0; state[s].ippon=0; state[s].shido=0; state[s].hansoku=false;});
+      fullRender();
+    };
+    document.getElementById('resetAll').onclick = () => {
+      stop();
+      Object.assign(state, {
+        blue:{ name:'', club:'', yuko:0, waza:0, ippon:0, shido:0, hansoku:false },
+        white:{ name:'', club:'', yuko:0, waza:0, ippon:0, shido:0, hansoku:false },
+        weight:'', round:'', secondsTotal:180, running:false
+      });
+      remaining = state.secondsTotal; fullRender();
+    };
+
+    // Ventana de pantalla externa
+    document.getElementById('openDisplay').onclick = () => {
+      childWin = window.open('', 'JudoDisplay', 'width=1280,height=720');
+      if(!childWin) return alert('Permite ventanas emergentes para abrir la pantalla.');
+      childWin.document.title = 'Marcador — Pantalla';
+      childWin.document.body.style.margin = '0';
+
+      // Añadir estilos de la app de forma segura (sin <script> embebidos)
+      const styleEl = childWin.document.createElement('style');
+      styleEl.textContent = document.querySelector('style').innerHTML + '
+ html,body{height:100%}';
+      childWin.document.head.appendChild(styleEl);
+
+      // Contenedor del marcador remoto
+      const remote = childWin.document.createElement('section');
+      remote.className = 'scoreboard';
+      remote.id = 'remoteDisplay';
+      childWin.document.body.appendChild(remote);
+
+      // Script del hijo que escucha postMessage y renderiza
+      const s = childWin.document.createElement('script');
+      s.textContent = `
+        function scoreTxt(x){return x.ippon? 'IP' : (x.waza>0? x.waza+'W' : (x.yuko>0? x.yuko+'Y' : '0'));}
+        function cards(x){return '<div class=\"card yellow\"></div>'.repeat(x.shido) + (x.hansoku?'<div class=\"card red\"></div>':'');}
+        function render(st, remaining){
+          const el = document.getElementById('remoteDisplay');
+          el.innerHTML = \
+          '<div class=\"sb-top\">'+
+            '<div class=\"side blue\">'+
+              '<div class=\"name\"><div class=\"club\">'+(st.blue.club||'')+'</div><div class=\"abbr\">AZUL</div></div>'+
+              '<div class=\"points\">'+scoreTxt(st.blue)+'</div>'+
+              '<div class=\"penalties\">'+cards(st.blue)+'</div>'+
+            '</div>'+
+            '<div class=\"center\">'+
+              '<div class=\"meta\">'+st.round+' • <span class=\"weight\">'+st.weight+'</span></div>'+
+              '<div class=\"timer\" id=\"timerText\">'+(Math.floor(remaining/60))+':'+String(remaining%60).padStart(2,'0')+'</div>'+
+              '<div class=\"meta\" style=\"opacity:.9\">'+st.blue.name+' vs '+st.white.name+'</div>'+
+            '</div>'+
+            '<div class=\"side white\">'+
+              '<div class=\"name\"><div class=\"abbr\">BLANCO</div><div class=\"club\">'+(st.white.club||'')+'</div></div>'+
+              '<div class=\"points\">'+scoreTxt(st.white)+'</div>'+
+              '<div class=\"penalties\">'+cards(st.white)+'</div>'+
+            '</div>'+
+          '</div>'+
+          '<div class=\"sb-bottom\">'+
+            '<div>'+st.blue.name+'</div>'+
+            '<div>Tiempo '+(st.running?'🟢':'⏸️')+'</div>'+
+            '<div>'+st.white.name+'</div>'+
+          '</div>';
+        }
+        window.addEventListener('message', (e)=>{ if(!e.data||e.data.type!=='STATE') return; render(e.data.state, e.data.remaining); });
+        document.body.addEventListener('dblclick',()=>{ if(!document.fullscreenElement) document.body.requestFullscreen(); else document.exitFullscreen(); });
+      `;
+      childWin.document.body.appendChild(s);
+
+      broadcast();
+    };
+
+    // Atajos de teclado
+    window.addEventListener('keydown', (e)=>{
+      if(e.code==='Space'){ e.preventDefault(); state.running ? stop() : start(); }
+      if(e.key==='b' || e.key==='B'){ remaining = Math.min(59*60+59, remaining + 10); updateTimerText(); persist(); broadcast(); }
+      if(e.key==='n' || e.key==='N'){ remaining = Math.max(0, remaining - 10); updateTimerText(); persist(); broadcast(); }
+    });
+
+    // Sincronizar timer visual en el preview/display embebido
+    setInterval(()=>{ if(state.running){ updateTimerText(); } }, 200);
+
+    // Inicializar inputs de tiempo desde estado restaurado
+    (function initTimeInputs(){
+      const m = Math.floor(state.secondsTotal/60), s = state.secondsTotal%60;
+      document.getElementById('minutes').value = m; document.getElementById('seconds').value = s;
+      remaining = Math.min(remaining, state.secondsTotal);
+      updateTimerText();
+    })();
+  </script>
+</body>
+</html>
