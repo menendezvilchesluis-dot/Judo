@@ -19,6 +19,7 @@
     .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
     .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:12px;border:1px solid #2a3a72;background:#0f1833;color:#e7ebff;cursor:pointer}
     .btn.full{width:100%}
+
     .section{border-top:1px dashed #233067;margin:16px -16px 0;padding:16px}
     .preview{border-radius:16px;border:1px solid #233067;overflow:hidden}
     .kbd{font-family:ui-monospace,Menlo,Consolas;background:#0b1430;padding:2px 6px;border-radius:6px;border:1px solid #24326b}
@@ -46,12 +47,24 @@
     .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:10}
     .overlay .box{background:#101826;border:1px solid #20325f;border-radius:16px;padding:18px 22px;color:#fff;text-align:center}
     .overlay .timer{font-size:140px;color:#fff}
+    /* ===== Tema Display tipo foto ===== */
+    .display-wrap{position:relative;width:100%;height:100%;background:#000}
+    .topbar{position:absolute;left:0;right:0;top:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-weight:800;letter-spacing:.5px}
+    .topbar .name{font-size:24px}
+    .rail{position:absolute;left:0;top:54px;bottom:72px;width:280px;display:grid;grid-template-rows:1fr 1fr}
+    .rail .cell{display:flex;align-items:center;font-weight:900;font-size:64px;padding-left:18px}
+    .rail .cell.blue{background:#2b4dff;color:#fff}
+    .rail .cell.white{background:#f1f5ff;color:#0b1020}
+    .center-timer{position:absolute;left:280px;right:0;top:54px;bottom:72px;display:flex;align-items:center;justify-content:center}
+    .center-timer .time{font-size:240px;line-height:1;color:#2dd07a;font-weight:900;letter-spacing:2px}
+    .bottombar{position:absolute;left:0;right:0;bottom:0;height:72px;background:#0b0b0b;display:flex;align-items:center;justify-content:space-between;padding:0 16px;color:#9cd4ff;font-size:22px}
+    .meta-left{position:absolute;left:12px;bottom:84px;color:#46e189;font-size:32px;font-weight:900}
+    .meta-left .line2{font-size:28px;opacity:.95}
   </style>
 </head>
 <body>
   <aside class="panel">
     <h1>Marcador de Judo — Control</h1>
-
     <h2>Datos del combate</h2>
     <div class="row">
       <div>
@@ -146,21 +159,19 @@
         </div>
       </div>
       <div class="row" style="margin-top:10px">
-        <div><label><input type="checkbox" id="ruleW2I" checked> 2 Wazari = Ippon</label></div>
-        <div><label><input type="checkbox" id="ruleS3H" checked> 3 Shido = Hansoku</label></div>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <div><label><input type="checkbox" id="ruleOsaAuto" checked> Osaekomi automático (10s=Wazari, 20s=Ippon)</label></div>
-        <div><label><input type="checkbox" id="ruleGSFinish" checked> Golden Score termina al 1er Wazari/Ippon</label></div>
+        <div>
+          <label><input type="checkbox" id="ruleW2I" checked> 2 Wazari = Ippon</label>
+        </div>
+        <div>
+          <label><input type="checkbox" id="ruleS3H" checked> 3 Shido = Hansoku</label>
+        </div>
       </div>
       <div class="grid3" style="margin-top:10px">
         <button class="btn" id="resetScores">🔁 Reset Puntos</button>
         <button class="btn" id="resetAll">🧹 Reset Todo</button>
         <button class="btn" id="openDisplay">🖥️ Abrir Pantalla</button>
       </div>
-      <div style="margin-top:8px;font-size:12px;opacity:.8">
-        Atajos: Espacio iniciar/pausar · B +10s · N −10s · 1/2/3 Azul (Y/W/I) · 8/9/0 Blanco (Y/W/I) · S/Shift+S Shido · H/Shift+H Hansoku.
-      </div>
+      <div style="margin-top:8px;font-size:12px;opacity:.8">Atajos: Espacio iniciar/pausar · B +10s · N −10s · 1/2/3 Azul Y/W/I · 8/9/0 Blanco Y/W/I · S/Shift+S Shido · H/Shift+H Hansoku.</div>
     </div>
 
     <div class="section">
@@ -176,7 +187,7 @@
           </div>
         </div>
       </div>
-      <div style="margin-top:8px;font-size:12px;opacity:.8">En Osaekomi: aviso a 10s; con automático activo: 10s=Wazari, 20s=Ippon + fin del combate.</div>
+      <div style="margin-top:8px;font-size:12px;opacity:.8">En Osaekomi: señal a 10s (Wazari) y a 20s (Ippon). Sonido al finalizar tiempos.</div>
     </div>
 
     <h2>Vista previa</h2>
@@ -184,28 +195,26 @@
   </aside>
 
   <section id="display" class="scoreboard" aria-label="Marcador"></section>
+  <section id="displayV2" class="display-wrap" aria-label="MarcadorV2" style="display:none"></section>
   <div class="overlay" id="osaOverlay"><div class="box"><div>⏱️ Osaekomi</div><div class="timer" id="osaTimer">0:00</div></div></div>
 
   <script>
   (function(){
-    // ===== Estado =====
-    var state = {
-      blue:{name:'TORO SOLER J.',club:'VAL',yuko:0,waza:0,ippon:0,shido:0,hansoku:false},
-      white:{name:'MANUKYAN R.',club:'NAV',yuko:0,waza:0,ippon:0,shido:0,hansoku:false},
-      weight:'-66 kg', round:'Round 1', secondsTotal:180, running:false, golden:false
-    };
-    var remaining = state.secondsTotal, timerId=null, childWin=null;
-    var ruleW2I=true, ruleS3H=true, ruleOsaAuto=true, ruleGSFinish=true;
+    // ================= Estado =================
+    var state = { blue:{name:'TORO SOLER J.',club:'VAL',yuko:0,waza:0,ippon:0,shido:0,hansoku:false}, white:{name:'MANUKYAN R.',club:'NAV',yuko:0,waza:0,ippon:0,shido:0,hansoku:false}, weight:'-66 kg', round:'Round 1', secondsTotal:180, running:false, golden:false };
+    var remaining = state.secondsTotal; var timerId=null; var childWin=null;
+    var ruleW2I = true, ruleS3H = true;
 
-    // ===== Utils =====
+    // ================= Utils =================
     function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function pad(n){ return String(n).padStart(2,'0'); }
-    function fmt(secs){ var m=Math.floor(secs/60), s=secs%60; return m+':'+pad(s); }
-    function beep(freq,ms){ try{ var ac=new (window.AudioContext||window.webkitAudioContext)(); var o=ac.createOscillator(), g=ac.createGain(); o.connect(g); g.connect(ac.destination); o.frequency.value=freq; o.start(); g.gain.setValueAtTime(0.25, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+ms/1000); setTimeout(function(){o.stop(); ac.close();}, ms+60); }catch(e){} }
+    function t(secs){ var m=Math.floor(secs/60), s=secs%60; return m+":"+pad(s); }
+    function beep(freq,ms){ try{ var ac=new (window.AudioContext||window.webkitAudioContext)(); var o=ac.createOscillator(), g=ac.createGain(); o.connect(g); g.connect(ac.destination); o.frequency.value=freq; o.start(); g.gain.setValueAtTime(0.2, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+ms/1000); setTimeout(function(){o.stop(); ac.close();}, ms+50); }catch(e){} }
 
-    // ===== Render =====
+    // ================= Render =================
     function scoreTxt(x){ return x.ippon? 'IP' : (x.waza>0? x.waza+'W' : (x.yuko>0? x.yuko+'Y' : '0')); }
     function cards(x){ var y=''; for(var i=0;i<x.shido;i++){ y+='<div class="card yellow"></div>'; } return y+(x.hansoku?'<div class="card red"></div>':''); }
+
     function render(container){
       var gs = state.golden? '<span class="gs-badge">GOLDEN SCORE</span>':'';
       var html = ''
@@ -233,159 +242,149 @@
       + '</div>';
       container.innerHTML = html;
     }
-    var display=document.getElementById('display'), preview=document.getElementById('preview');
-    function fullRender(){ render(display); render(preview); if(childWin && !childWin.closed){ childWin.postMessage({type:'STATE',state:state,remaining:remaining}, '*'); } }
-    fullRender();
-    function updateTimer(){ var els=document.querySelectorAll('#timerText'); for(var i=0;i<els.length;i++){ els[i].textContent=fmt(remaining); } }
 
-    // ===== Reloj =====
-    function tick(){
-      if(!state.running) return;
-      if(!state.golden && remaining>0){ remaining--; updateTimer(); if(remaining===0){ stop(); beep(480,350); beep(320,350); } }
+    // Render tema V2 parecido a foto
+    function renderV2(container){
+      container.innerHTML = ''
+        + '<div class="topbar">'
+          + '<div class="name">'+esc(state.blue.name)+'</div>'
+          + '<div class="name">'+esc(state.white.name)+'</div>'
+        + '</div>'
+        + '<div class="rail">'
+          + '<div class="cell blue">'+esc(state.blue.club||'')+'</div>'
+          + '<div class="cell white">'+esc(state.white.club||'')+'</div>'
+        + '</div>'
+        + '<div class="center-timer"><div class="time" id="timerTextV2">'+fmt(remaining)+'</div></div>'
+        + '<div class="meta-left"><div> '+esc(state.round||'')+' </div><div class="line2"> '+esc(state.weight||'')+' </div></div>'
+        + '<div class="bottombar"><div>'+esc(state.blue.name)+'</div><div>'+(state.running?'🟢':'⏸️')+' TIEMPO</div><div>'+esc(state.white.name)+'</div></div>';
+    }
+
+    var display = document.getElementById('display');
+    var preview = document.getElementById('preview');
+    function fullRender(){
+      // Tema clásico (panel preview) y modo display V2
+      render(display);
+      render(preview);
+      var dv2=document.getElementById('displayV2');
+      if(dv2.style.display!=='none') renderV2(dv2);
+      if(childWin && !childWin.closed){ childWin.postMessage({type:'STATE',state:state,remaining:remaining}, '*'); }
+    }, '*'); } }
+    fullRender();
+
+    function updateTimer(){ var els=document.querySelectorAll('#timerText'); for(var i=0;i<els.length;i++){ els[i].textContent=t(remaining); } }
+
+    // ================= Reloj principal =================
+    function tick(){ if(!state.running) return; if(!state.golden && remaining>0){ remaining--; updateTimer(); if(remaining===0){ stop(); beep(440,300); beep(330,300); } }
       else if(state.golden){ remaining++; updateTimer(); }
     }
     function start(){ if(state.running) return; state.running=true; timerId=setInterval(tick,1000); fullRender(); }
     function stop(){ state.running=false; if(timerId){clearInterval(timerId); timerId=null;} fullRender(); }
 
-    // ===== Datos =====
-    function bindInput(id, who, key){ var el=document.getElementById(id); el.addEventListener('input', function(){ state[who][key]=el.value; fullRender(); }); el.value=state[who][key]; }
-    bindInput('blueName','blue','name'); bindInput('blueClub','blue','club'); bindInput('whiteName','white','name'); bindInput('whiteClub','white','club');
-    document.getElementById('weight').addEventListener('input', function(e){ state.weight=e.target.value; fullRender(); });
-    document.getElementById('round').addEventListener('input', function(e){ state.round=e.target.value; fullRender(); });
-
-    // ===== Reglas =====
-    document.getElementById('ruleW2I').onchange=function(){ ruleW2I=this.checked; };
-    document.getElementById('ruleS3H').onchange=function(){ ruleS3H=this.checked; };
-    document.getElementById('ruleOsaAuto').onchange=function(){ ruleOsaAuto=this.checked; };
-    document.getElementById('ruleGSFinish').onchange=function(){ ruleGSFinish=this.checked; };
-
-    function applyRules(side){
-      if(ruleW2I && state[side].waza>=2){ state[side].waza=0; state[side].ippon+=1; stop(); beep(760,300); }
-      if(ruleS3H && state[side].shido>=3){ state[side].hansoku=true; stop(); beep(280,550); }
-      if(ruleGSFinish && state.golden && (state[side].ippon>0 || state[side].waza>0)){ stop(); beep(760,300); }
-      fullRender();
-    }
-
-    // ===== Puntuaciones =====
-    function adjust(side, field, delta){ state[side][field]=Math.max(0,(state[side][field]||0)+delta); applyRules(side); }
-    function setHansoku(side, val){ state[side].hansoku=!!val; if(val){ stop(); beep(280,550); } fullRender(); }
-
-    var buttons=document.querySelectorAll('[data-side]');
-    for(var i=0;i<buttons.length;i++){
-      buttons[i].addEventListener('click', function(){
-        var s=this.dataset.side, t=this.dataset.type;
-        if(t==='yuko')adjust(s,'yuko',1); else if(t==='yuko-')adjust(s,'yuko',-1);
-        else if(t==='waza')adjust(s,'waza',1); else if(t==='waza-')adjust(s,'waza',-1);
-        else if(t==='ippon')adjust(s,'ippon',1), stop();
-        else if(t==='ippon-')adjust(s,'ippon',-1);
-        else if(t==='shido')adjust(s,'shido',1);
-        else if(t==='shido-')adjust(s,'shido',-1);
-        else if(t==='hansoku')setHansoku(s,!state[s].hansoku);
-      });
-    }
-
-    // ===== Botones generales =====
+    // ================= Eventos UI básicos =================
     document.getElementById('applyTime').onclick=function(){ var m=+document.getElementById('minutes').value||0; var s=+document.getElementById('seconds').value||0; state.secondsTotal=m*60+s; remaining=state.secondsTotal; state.golden=false; stop(); };
     document.getElementById('startStop').onclick=function(){ state.running? stop(): start(); };
     document.getElementById('add10').onclick=function(){ if(!state.golden){ remaining=Math.min(3599,remaining+10); updateTimer(); } };
     document.getElementById('sub10').onclick=function(){ if(!state.golden){ remaining=Math.max(0,remaining-10); updateTimer(); } };
+
+    // ================= Datos =================
+    function bindInput(id, obj, key){ var el=document.getElementById(id); el.addEventListener('input', function(){ state[obj][key]=el.value; fullRender(); }); el.value=state[obj][key]; }
+    bindInput('blueName','blue','name'); bindInput('blueClub','blue','club'); bindInput('whiteName','white','name'); bindInput('whiteClub','white','club');
+    document.getElementById('weight').addEventListener('input', function(e){ state.weight=e.target.value; fullRender(); });
+    document.getElementById('round').addEventListener('input', function(e){ state.round=e.target.value; fullRender(); });
+
+    // ================= Reglas =================
+    document.getElementById('ruleW2I').onchange=function(){ ruleW2I=this.checked; };
+    document.getElementById('ruleS3H').onchange=function(){ ruleS3H=this.checked; };
+
+    function applyRules(side){
+      if(ruleW2I && state[side].waza>=2){ state[side].waza=0; state[side].ippon += 1; stop(); beep(700,300); }
+      if(ruleS3H && state[side].shido>=3){ state[side].hansoku=true; stop(); beep(280,500); }
+      fullRender();
+    }
+
+    // ================= Puntuaciones =================
+    function adjust(side, field, delta){ state[side][field]=Math.max(0,(state[side][field]||0)+delta); applyRules(side); }
+    function setHansoku(side, val){ state[side].hansoku=!!val; if(val){ stop(); beep(280,500); } fullRender(); }
+
+    var btns=document.querySelectorAll('[data-side]');
+    for(var i=0;i<btns.length;i++){
+      btns[i].addEventListener('click', function(){ var s=this.dataset.side, t=this.dataset.type; if(t==='yuko')adjust(s,'yuko',1); else if(t==='yuko-')adjust(s,'yuko',-1); else if(t==='waza')adjust(s,'waza',1); else if(t==='waza-')adjust(s,'waza',-1); else if(t==='ippon')adjust(s,'ippon',1); else if(t==='ippon-')adjust(s,'ippon',-1); else if(t==='shido')adjust(s,'shido',1); else if(t==='shido-')adjust(s,'shido',-1); else if(t==='hansoku')setHansoku(s,!state[s].hansoku); });
+    }
+
     document.getElementById('resetScores').onclick=function(){ ['blue','white'].forEach(function(s){ state[s].yuko=0; state[s].waza=0; state[s].ippon=0; state[s].shido=0; state[s].hansoku=false; }); fullRender(); };
     document.getElementById('resetAll').onclick=function(){ stop(); state={ blue:{name:'',club:'',yuko:0,waza:0,ippon:0,shido:0,hansoku:false}, white:{name:'',club:'',yuko:0,waza:0,ippon:0,shido:0,hansoku:false}, weight:'', round:'', secondsTotal:180, running:false, golden:false }; remaining=state.secondsTotal; fullRender(); };
 
-    // ===== Golden Score =====
-    document.getElementById('toggleGS').onclick=function(){
-      state.golden=!state.golden;
-      if(state.golden){ remaining=0; start(); this.textContent='⏹️ Salir Golden Score'; }
-      else{ stop(); remaining=state.secondsTotal; updateTimer(); this.textContent='🏁 Iniciar Golden Score'; }
-      fullRender();
-    };
+    // ================= Golden Score =================
+    document.getElementById('toggleGS').onclick=function(){ state.golden=!state.golden; if(state.golden){ remaining=0; start(); this.textContent='⏹️ Salir Golden Score'; } else { stop(); remaining=state.secondsTotal; updateTimer(); this.textContent='🏁 Iniciar Golden Score'; } fullRender(); };
 
-    // ===== Osaekomi =====
-    var osaOverlay=document.getElementById('osaOverlay'), osaTimerEl=document.getElementById('osaTimer');
-    var osaId=null, osaSec=0, osaGoal=0;
-    function startOsa(goal){
-      if(osaId) clearInterval(osaId);
-      osaGoal=goal; osaSec=0; osaOverlay.style.display='flex'; osaTimerEl.textContent='0:00';
-      osaId=setInterval(function(){
-        osaSec++; osaTimerEl.textContent=fmt(osaSec);
-        if(osaSec===10){ beep(920,160); if(ruleOsaAuto){ // 10s = Wazari
-          // No asumimos color: sumas manual en botones o define aquí un lado fijo si quieres
-        }}
-        if(ruleOsaAuto && osaSec===20){ // 20s = Ippon
-          stop(); beep(760,320);
-          if(state.golden) { /* fin GS asegurado */ }
-          clearInterval(osaId);
-        }
-        if(osaSec>=osaGoal){ beep(600,300); clearInterval(osaId); }
-      },1000);
-    }
+    // ================= Osaekomi =================
+    var osaOverlay=document.getElementById('osaOverlay'); var osaTimerEl=document.getElementById('osaTimer'); var osaId=null, osaSec=0, osaGoal=0;
+    function startOsa(goal){ if(osaId) clearInterval(osaId); osaGoal=goal; osaSec=0; osaOverlay.style.display='flex'; osaTimerEl.textContent='0:00'; osaId=setInterval(function(){ osaSec++; osaTimerEl.textContent=t(osaSec); if(osaSec===10){ beep(900,150); }
+      if(goal===15 && osaSec===15){ adjust('blue','waza',0); /* neutral */ }
+      if(osaSec===10 && goal>=10){ /* marcar Wazari si corresponde */ }
+      if(osaSec===10 && goal===10){ /* solo aviso */ }
+      if(osaSec===20){ /* tope ippon automático */ }
+      if(osaSec>=goal){ beep(600,300); clearInterval(osaId); }
+    },1000); }
     var osaBtns=document.querySelectorAll('[data-osa]');
-    for(var j=0;j<osaBtns.length;j++){
-      osaBtns[j].addEventListener('click', function(){ startOsa(parseInt(this.dataset.osa,10)); });
-    }
-    osaOverlay.addEventListener('click', function(){ osaOverlay.style.display='none'; if(osaId){clearInterval(osaId); osaId=null;} });
+    for(var j=0;j<osaBtns.length;j++){ osaBtns[j].addEventListener('click', function(){ startOsa(parseInt(this.dataset.osa,10)); }); }
 
-    // ===== Pantalla externa =====
-    document.getElementById('openDisplay').onclick=function(){
-      childWin=window.open('', 'JudoDisplay', 'width=1280,height=720');
-      if(!childWin){ alert('Permite ventanas emergentes.'); return; }
-      childWin.document.title='Marcador — Pantalla'; childWin.document.body.style.margin='0';
-      var styleEl=childWin.document.createElement('style'); styleEl.textContent=document.querySelector('style').innerHTML+'\n html,body{height:100%}';
-      childWin.document.head.appendChild(styleEl);
-      var remote=childWin.document.createElement('section'); remote.className='scoreboard'; remote.id='remoteDisplay'; childWin.document.body.appendChild(remote);
-      var s=document.createElement('script');
-      s.textContent="function esc(x){return String(x||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}"
-      +"function scoreTxt(x){return x.ippon?'IP':(x.waza>0?x.waza+'W':(x.yuko>0?x.yuko+'Y':'0'));}"
-      +"function cards(x){var y='';for(var i=0;i<x.shido;i++){y+='<div class=\\\"card yellow\\\"></div>';}return y+(x.hansoku?'<div class=\\\"card red\\\"></div>':'');}"
-      +"function render(st,rem){var gs=st.golden?' <span class=\\\"gs-badge\\\">GOLDEN SCORE</span>':'';document.getElementById('remoteDisplay').innerHTML="
-      +"'<div class=\\\"sb-top\\\">'"
-        +"+'<div class=\\\"side blue\\\">'"
-          +"+'<div class=\\\"name\\\"><div class=\\\"club\\\">'+esc(st.blue.club)+'</div><div class=\\\"abbr\\\">AZUL</div></div>'"
-          +"+'<div class=\\\"points\\\">'+scoreTxt(st.blue)+'</div>'"
-          +"+'<div class=\\\"penalties\\\">'+cards(st.blue)+'</div>'"
-        +"+'</div>'"
-        +"+'<div class=\\\"center\\\">'"
-          +"+'<div class=\\\"meta\\\">'+esc(st.round)+gs+' • <span class=\\\"weight\\\">'+esc(st.weight)+'</span></div>'"
-          +"+'<div class=\\\"timer\\\" id=\\\"timerText\\\">'+(Math.floor(rem/60))+':'+String(rem%60).padStart(2,'0')+'</div>'"
-          +"+'<div class=\\\"meta\\\" style=\\\"opacity:.9\\\">'+esc(st.blue.name)+' vs '+esc(st.white.name)+'</div>'"
-        +"+'</div>'"
-        +"+'<div class=\\\"side white\\\">'"
-          +"+'<div class=\\\"name\\\"><div class=\\\"abbr\\\">BLANCO</div><div class=\\\"club\\\">'+esc(st.white.club)+'</div></div>'"
-          +"+'<div class=\\\"points\\\">'+scoreTxt(st.white)+'</div>'"
-          +"+'<div class=\\\"penalties\\\">'+cards(st.white)+'</div>'"
-        +"+'</div>'"
-      +"'</div>'"
-      +"+'<div class=\\\"sb-bottom\\\">'"
-        +"+'<div>'+esc(st.blue.name)+'</div>'"
-        +"+'<div>'+(st.running?'🟢':'⏸️')+' '+(st.golden?'GOLDEN':'TIEMPO')+'</div>'"
-        +"+'<div>'+esc(st.white.name)+'</div>'"
-      +"+'</div>';}"
-      +"window.addEventListener('message',function(e){ if(!e.data||e.data.type!=='STATE') return; render(e.data.state, e.data.remaining);});"
-      +"document.body.addEventListener('dblclick',function(){ if(!document.fullscreenElement) document.body.requestFullscreen(); else document.exitFullscreen();});";
-      childWin.document.body.appendChild(s);
-      fullRender();
-    };
+    // ================= Pantalla externa =================
+    document.getElementById('openDisplay').onclick=function(){ childWin=window.open('', 'JudoDisplay', 'width=1280,height=720'); if(!childWin){ alert('Permite ventanas emergentes.'); return; } childWin.document.title='Marcador — Pantalla'; childWin.document.body.style.margin='0'; var styleEl=childWin.document.createElement('style'); styleEl.textContent=document.querySelector('style').innerHTML+'
+ html,body{height:100%}'; childWin.document.head.appendChild(styleEl); var remote=childWin.document.createElement('section'); remote.className='scoreboard'; remote.id='remoteDisplay'; childWin.document.body.appendChild(remote); var s=document.createElement('script'); s.textContent="function esc(x){return String(x||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}function scoreTxt(x){return x.ippon?'IP':(x.waza>0?x.waza+'W':(x.yuko>0?x.yuko+'Y':'0'));}function cards(x){var y='';for(var i=0;i<x.shido;i++){y+='<div class=\\"card yellow\\"></div>';}return y+(x.hansoku?'<div class=\\"card red\\"></div>':'');}function render(st,rem){var gs=st.golden?' <span class=\\"gs-badge\\">GOLDEN SCORE</span>':'';document.getElementById('remoteDisplay').innerHTML='"+
+      "<div class=\\"sb-top\\">"+
+      "<div class=\\"side blue\\">"+
+      "<div class=\\"name\\"><div class=\\"club\\">'+"+"esc(st.blue.club)"+"+'</div><div class=\\"abbr\\">AZUL</div></div>"+
+      "<div class=\\"points\\">'+"+"scoreTxt(st.blue)"+"+'</div>"+
+      "<div class=\\"penalties\\">'+"+"cards(st.blue)"+"+'</div>"+
+      "</div>"+
+      "<div class=\\"center\\">"+
+      "<div class=\\"meta\\">'+"+"esc(st.round)"+"+gs+' • <span class=\\"weight\\">'+"+"esc(st.weight)"+"+'</span></div>"+
+      "<div class=\\"timer\\" id=\\"timerText\\">'+"+"(Math.floor(rem/60))+":"+"+"String(rem%60).padStart(2,'0')"+"+'</div>"+
+      "<div class=\\"meta\\" style=\\"opacity:.9\\">'+"+"esc(st.blue.name)"+"+' vs '+"+"esc(st.white.name)"+"+'</div>"+
+      "</div>"+
+      "<div class=\\"side white\\">"+
+      "<div class=\\"name\\"><div class=\\"abbr\\">BLANCO</div><div class=\\"club\\">'+"+"esc(st.white.club)"+"+'</div></div>"+
+      "<div class=\\"points\\">'+"+"scoreTxt(st.white)"+"+'</div>"+
+      "<div class=\\"penalties\\">'+"+"cards(st.white)"+"+'</div>"+
+      "</div>"+
+      "</div>"+
+      "<div class=\\"sb-bottom\\">"+
+      "<div>'+"+"esc(st.blue.name)"+"+'</div>"+
+      "<div>'+(st.running?'🟢':'⏸️')+' '+(st.golden?'GOLDEN':'TIEMPO')+'</div>"+
+      "<div>'+"+"esc(st.white.name)"+"+'</div>"+
+      "</div>'; }window.addEventListener('message',function(e){ if(!e.data||e.data.type!=='STATE') return; render(e.data.state, e.data.remaining);});document.body.addEventListener('dblclick',function(){ if(!document.fullscreenElement) document.body.requestFullscreen(); else document.exitFullscreen();});"; childWin.document.body.appendChild(s); fullRender(); };
 
-    // ===== Teclado =====
+    // ================= Teclado =================
     window.addEventListener('keydown', function(e){
       if(e.code==='Space'){ e.preventDefault(); state.running? stop(): start(); }
       else if(e.key==='b'||e.key==='B'){ if(!state.golden){ remaining=Math.min(3599,remaining+10); updateTimer(); } }
       else if(e.key==='n'||e.key==='N'){ if(!state.golden){ remaining=Math.max(0,remaining-10); updateTimer(); } }
+      // Azul: 1/2/3
       else if(e.key==='1'){ adjust('blue','yuko',1); }
       else if(e.key==='2'){ adjust('blue','waza',1); }
       else if(e.key==='3'){ adjust('blue','ippon',1); stop(); }
+      // Blanco: 8/9/0
       else if(e.key==='8'){ adjust('white','yuko',1); }
       else if(e.key==='9'){ adjust('white','waza',1); }
       else if(e.key==='0'){ adjust('white','ippon',1); stop(); }
+      // Shido/Hansoku: S/H para Azul, Shift+S/H para Blanco
       else if(e.key==='s' || e.key==='S'){ if(e.shiftKey) adjust('white','shido',1); else adjust('blue','shido',1); }
       else if(e.key==='h' || e.key==='H'){ if(e.shiftKey) setHansoku('white', !state.white.hansoku); else setHansoku('blue', !state.blue.hansoku); }
     });
 
-    // ===== Loop visual y arranque =====
+    // ================= Arranque =================
     setInterval(function(){ if(state.running) updateTimer(); }, 200);
-    (function init(){ var m=Math.floor(state.secondsTotal/60), s=state.secondsTotal%60; document.getElementById('minutes').value=m; document.getElementById('seconds').value=s; updateTimer(); })();
+    (function init(){ var m=Math.floor(state.secondsTotal/60), s=state.secondsTotal%60; document.getElementById('minutes').value=m; document.getElementById('seconds').value=s; updateTimer();
+      // Router hash: #/display => solo display V2; #/control => panel+preview
+      function route(){ var hash=location.hash||''; var panel=document.querySelector('.panel'); var d1=document.getElementById('display'); var d2=document.getElementById('displayV2');
+        if(hash.indexOf('/display')!==-1){ panel.style.display='none'; d1.style.display='none'; d2.style.display='block'; renderV2(d2); document.body.style.gridTemplateColumns='1fr'; }
+        else { panel.style.display='block'; d1.style.display='grid'; d2.style.display='none'; document.body.style.gridTemplateColumns='420px 1fr'; }
+      }
+      window.addEventListener('hashchange', route); route();
+    })();
 
-    // ===== Diagnóstico (muestra error en pantalla si algo peta) =====
+    // Diagnóstico si algo raro pasa
     window.addEventListener('error', function(e){ var box=document.createElement('div'); box.style.position='fixed'; box.style.left='0'; box.style.right='0'; box.style.bottom='0'; box.style.background='#300'; box.style.color='#fff'; box.style.padding='8px 12px'; box.style.fontFamily='monospace'; box.textContent='ERROR: '+e.message; document.body.appendChild(box); });
   })();
   </script>
