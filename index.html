@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Marcador de Judo – Club</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23121a33'/%3E%3Ctext x='32' y='40' font-size='28' text-anchor='middle' fill='%2328d07d' font-family='Arial,sans-serif'%3EJ%3C/text%3E%3C/svg%3E"/>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23121a33'/%3E%3Ctext x='32' y='40' font-size='28' text-anchor='middle' fill='%2328d07d' font-family='Arial,sans-serif'%3EJ%3C/text%3E%3C/svg%3E"/>
   <style>
     :root{
       --bg:#0b1020;          /* Fondo app */
@@ -214,262 +216,154 @@
   <section id="display" class="scoreboard" aria-label="Marcador"></section>
 
   <script>
+"use strict";
     // ---------- Estado del partido ----------
-    const state = {
+    var state = {
       blue: { name:'TORO SOLER J.', club:'VAL', yuko:0, waza:0, ippon:0, shido:0, hansoku:false },
       white:{ name:'MANUKYAN R.', club:'NAV', yuko:0, waza:0, ippon:0, shido:0, hansoku:false },
       weight: '-66 kg',
       round: 'Round 1',
-      secondsTotal: 3*60, // 3 minutos por defecto
+      secondsTotal: 3*60,
       running: false
     };
+    var remaining = state.secondsTotal;
+    var timerId = null; var childWin = null;
 
-    let remaining = state.secondsTotal;
-    let timerId = null;
-    let childWin = null; // ventana del display externo
+    // Utils
+    function pad(n){ return String(n).padStart(2,'0'); }
+    function formatTime(secs){ var m=Math.floor(secs/60), s=secs%60; return m+":"+pad(s); }
+    function escapeHtml(s){ s = String(s==null? '': s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-    // ---------- Utilidades ----------
-    const pad = n => String(n).padStart(2,'0');
-    function formatTime(secs){
-      const m = Math.floor(secs/60), s = secs%60; return `${m}:${pad(s)}`;
-    }
+    function persist(){ try{ localStorage.setItem('judoScoreboard', JSON.stringify({state:state, remaining:remaining})); }catch(e){} }
+    (function restore(){ try{ var raw=localStorage.getItem('judoScoreboard'); if(!raw) return; var saved=JSON.parse(raw); Object.assign(state, saved.state||{}); remaining = (saved.remaining!=null)? saved.remaining : state.secondsTotal; }catch(e){} })();
 
-    // Persistencia simple
-    const persist = () => localStorage.setItem('judoScoreboard', JSON.stringify({state, remaining}));
-    const restore = () => {
-      try{
-        const raw = localStorage.getItem('judoScoreboard');
-        if(!raw) return;
-        const saved = JSON.parse(raw);
-        Object.assign(state, saved.state);
-        remaining = saved.remaining ?? state.secondsTotal;
-      }catch{ /* ignore */ }
-    };
-    restore();
+    // Render
+    function scoreDisplay(side){ return side.ippon? 'IP' : (side.waza>0? (side.waza+'W') : (side.yuko>0? (side.yuko+'Y') : '0')); }
+    function cards(side){ var y=''; for(var i=0;i<side.shido;i++){ y += '<div class="card yellow"></div>'; } return y + (side.hansoku? '<div class="card red"></div>':'' ); }
 
-    // ---------- Render del marcador (reutilizable para preview y pantalla) ----------
     function renderScoreboard(container){
-      container.innerHTML = `
-        <div class="sb-top">
-          <div class="side blue">
-            <div class="name">
-              <div class="club">${state.blue.club || ''}</div>
-              <div class="abbr">AZUL</div>
-            </div>
-            <div class="points">${scoreDisplay(state.blue)}</div>
-            <div class="penalties">${cards(state.blue)}</div>
-          </div>
-          <div class="center">
-            <div class="meta">${escapeHtml(state.round)} • <span class="weight">${escapeHtml(state.weight)}</span></div>
-            <div class="timer" id="timerText">${formatTime(remaining)}</div>
-            <div class="meta" style="opacity:.9">${escapeHtml(state.blue.name)} vs ${escapeHtml(state.white.name)}</div>
-          </div>
-          <div class="side white">
-            <div class="name">
-              <div class="abbr">BLANCO</div>
-              <div class="club">${state.white.club || ''}</div>
-            </div>
-            <div class="points">${scoreDisplay(state.white)}</div>
-            <div class="penalties">${cards(state.white)}</div>
-          </div>
-        </div>
-        <div class="sb-bottom">
-          <div>${escapeHtml(state.blue.name)}</div>
-          <div>Tiempo ${state.running ? '🟢' : '⏸️'}</div>
-          <div>${escapeHtml(state.white.name)}</div>
-        </div>`
+      var html = ''+
+      '<div class="sb-top">'+
+        '<div class="side blue">'+
+          '<div class="name">'+
+            '<div class="club">'+escapeHtml(state.blue.club||'')+'</div>'+
+            '<div class="abbr">AZUL</div>'+
+          '</div>'+
+          '<div class="points">'+scoreDisplay(state.blue)+'</div>'+
+          '<div class="penalties">'+cards(state.blue)+'</div>'+
+        '</div>'+
+        '<div class="center">'+
+          '<div class="meta">'+escapeHtml(state.round)+' • <span class="weight">'+escapeHtml(state.weight)+'</span></div>'+
+          '<div class="timer" id="timerText">'+formatTime(remaining)+'</div>'+
+          '<div class="meta" style="opacity:.9">'+escapeHtml(state.blue.name)+' vs '+escapeHtml(state.white.name)+'</div>'+
+        '</div>'+
+        '<div class="side white">'+
+          '<div class="name">'+
+            '<div class="abbr">BLANCO</div>'+
+            '<div class="club">'+escapeHtml(state.white.club||'')+'</div>'+
+          '</div>'+
+          '<div class="points">'+scoreDisplay(state.white)+'</div>'+
+          '<div class="penalties">'+cards(state.white)+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="sb-bottom">'+
+        '<div>'+escapeHtml(state.blue.name)+'</div>'+
+        '<div>Tiempo '+(state.running? 'ON':'PAUSA')+'</div>'+
+        '<div>'+escapeHtml(state.white.name)+'</div>'+
+      '</div>';
+      container.innerHTML = html;
     }
 
-    function scoreDisplay(side){
-      // Muestra: (Y) (W) (I) con prioridad visual al total. Aquí mostramos suma visual compacta
-      const total = side.ippon ? 'IP' : (side.waza>0 ? `${side.waza}W` : (side.yuko>0 ? `${side.yuko}Y` : '0'));
-      return total;
-    }
-    function cards(side){
-      const y = Array.from({length: side.shido}, ()=>'<div class="card yellow"></div>').join('');
-      const r = side.hansoku ? '<div class="card red"></div>' : '';
-      return y + r;
-    }
-    function escapeHtml(s=''){
-      return String(s)
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;')
-        .replace(/'/g,'&#39;');
-    }{return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
+    function broadcast(){ if(childWin && !childWin.closed){ childWin.postMessage({type:'STATE', state:state, remaining:remaining}, '*'); } }
 
-    function broadcast(){
-      // Enviar estado a la ventana externa si existe
-      if(childWin && !childWin.closed){
-        childWin.postMessage({type:'STATE', state, remaining}, '*');
-      }
-    }
-
-    // ---------- Render inicial ----------
-    const display = document.getElementById('display');
-    const preview = document.getElementById('preview');
-    function fullRender(){
-      renderScoreboard(display);
-      renderScoreboard(preview);
-      persist();
-      broadcast();
-    }
+    var display = document.getElementById('display');
+    var preview = document.getElementById('preview');
+    function fullRender(){ renderScoreboard(display); renderScoreboard(preview); persist(); broadcast(); }
     fullRender();
 
-    // ---------- Lógica de tiempo ----------
-    function tick(){
-      if(!state.running) return;
-      if(remaining > 0){
-        remaining -= 1; updateTimerText();
-        persist(); broadcast();
-      } else {
-        stop();
-      }
-    }
-    function updateTimerText(){
-      document.querySelectorAll('#timerText').forEach(el=> el.textContent = formatTime(remaining));
-    }
-    function start(){ if(state.running) return; state.running = true; timerId = setInterval(tick, 1000); fullRender(); }
-    function stop(){ state.running = false; if(timerId){clearInterval(timerId); timerId=null;} fullRender(); }
+    // Timer
+    function updateTimerText(){ var els=document.querySelectorAll('#timerText'); for(var i=0;i<els.length;i++){ els[i].textContent = formatTime(remaining); } }
+    function tick(){ if(!state.running) return; if(remaining>0){ remaining--; updateTimerText(); persist(); broadcast(); } else { stop(); } }
+    function start(){ if(state.running) return; state.running=true; timerId=setInterval(tick,1000); fullRender(); }
+    function stop(){ state.running=false; if(timerId){ clearInterval(timerId); timerId=null; } fullRender(); }
 
-    // ---------- Controles de UI ----------
-    const $ = sel => document.querySelector(sel);
-    $('#applyTime').onclick = () => {
-      const m = +$('#minutes').value||0; const s = +$('#seconds').value||0;
-      state.secondsTotal = m*60 + s; remaining = state.secondsTotal; stop();
-    }
-    $('#startStop').onclick = () => state.running ? stop() : start();
-    $('#add10').onclick = () => { remaining = Math.min(59*60+59, remaining + 10); updateTimerText(); persist(); broadcast(); }
-    $('#sub10').onclick = () => { remaining = Math.max(0, remaining - 10); updateTimerText(); persist(); broadcast(); }
+    // Inputs
+    function $(sel){ return document.querySelector(sel); }
+    $('#applyTime').onclick = function(){ var m=+$('#minutes').value||0, s=+$('#seconds').value||0; state.secondsTotal=m*60+s; remaining=state.secondsTotal; stop(); };
+    $('#startStop').onclick = function(){ state.running? stop(): start(); };
+    $('#add10').onclick = function(){ remaining = Math.min(3599, remaining+10); updateTimerText(); persist(); broadcast(); };
+    $('#sub10').onclick = function(){ remaining = Math.max(0, remaining-10); updateTimerText(); persist(); broadcast(); };
 
-    // Datos básicos
-    function bindInput(id, path){
-      const el = document.getElementById(id);
-      const [root, key] = path.split('.');
-      el.addEventListener('input', () => { state[root][key] = el.value; fullRender(); });
-      el.value = state[root][key];
-    }
-    bindInput('blueName','blue.name');
-    bindInput('blueClub','blue.club');
-    bindInput('whiteName','white.name');
-    bindInput('whiteClub','white.club');
-    document.getElementById('weight').addEventListener('input', e=>{state.weight=e.target.value; fullRender();});
-    document.getElementById('round').addEventListener('input', e=>{state.round=e.target.value; fullRender();});
+    function bindInput(id, side, key){ var el=document.getElementById(id); el.addEventListener('input', function(){ state[side][key] = el.value; fullRender(); }); el.value = state[side][key]; }
+    bindInput('blueName','blue','name'); bindInput('blueClub','blue','club'); bindInput('whiteName','white','name'); bindInput('whiteClub','white','club');
+    document.getElementById('weight').addEventListener('input', function(e){ state.weight=e.target.value; fullRender(); });
+    document.getElementById('round').addEventListener('input', function(e){ state.round=e.target.value; fullRender(); });
 
-    // Botones de puntuación
-    function adjust(side, field, delta){
-      state[side][field] = Math.max(0, (state[side][field]||0) + delta);
-      fullRender();
-    }
+    function adjust(side, field, delta){ state[side][field] = Math.max(0, (state[side][field]||0) + delta); fullRender(); }
     function setHansoku(side, val){ state[side].hansoku = !!val; fullRender(); }
 
-    document.querySelectorAll('[data-side]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const side = btn.dataset.side, type = btn.dataset.type;
-        if(type==='yuko') return adjust(side,'yuko',+1);
-        if(type==='yuko-') return adjust(side,'yuko',-1);
-        if(type==='waza') return adjust(side,'waza',+1);
-        if(type==='waza-') return adjust(side,'waza',-1);
-        if(type==='ippon') return adjust(side,'ippon',+1);
-        if(type==='ippon-') return adjust(side,'ippon',-1);
-        if(type==='shido') return adjust(side,'shido',+1);
-        if(type==='shido-') return adjust(side,'shido',-1);
-        if(type==='hansoku') return setHansoku(side,true);
-        if(type==='hansoku-') return setHansoku(side,false);
+    var btns = document.querySelectorAll('[data-side]');
+    for(var i=0;i<btns.length;i++){
+      btns[i].addEventListener('click', function(){
+        var side=this.dataset.side, type=this.dataset.type;
+        if(type==='yuko') adjust(side,'yuko',1);
+        else if(type==='yuko-') adjust(side,'yuko',-1);
+        else if(type==='waza') adjust(side,'waza',1);
+        else if(type==='waza-') adjust(side,'waza',-1);
+        else if(type==='ippon') adjust(side,'ippon',1);
+        else if(type==='ippon-') adjust(side,'ippon',-1);
+        else if(type==='shido') adjust(side,'shido',1);
+        else if(type==='shido-') adjust(side,'shido',-1);
+        else if(type==='hansoku') setHansoku(side,true);
+        else if(type==='hansoku-') setHansoku(side,false);
       });
-    });
+    }
 
-    // Reset
-    document.getElementById('resetScores').onclick = () => {
-      ['blue','white'].forEach(s=> {state[s].yuko=0; state[s].waza=0; state[s].ippon=0; state[s].shido=0; state[s].hansoku=false;});
-      fullRender();
-    };
-    document.getElementById('resetAll').onclick = () => {
-      stop();
-      Object.assign(state, {
-        blue:{ name:'', club:'', yuko:0, waza:0, ippon:0, shido:0, hansoku:false },
-        white:{ name:'', club:'', yuko:0, waza:0, ippon:0, shido:0, hansoku:false },
-        weight:'', round:'', secondsTotal:180, running:false
-      });
-      remaining = state.secondsTotal; fullRender();
-    };
+    document.getElementById('resetScores').onclick = function(){ ['blue','white'].forEach(function(s){ state[s].yuko=0; state[s].waza=0; state[s].ippon=0; state[s].shido=0; state[s].hansoku=false; }); fullRender(); };
+    document.getElementById('resetAll').onclick = function(){ stop(); state={ blue:{name:'',club:'',yuko:0,waza:0,ippon:0,shido:0,hansoku:false}, white:{name:'',club:'',yuko:0,waza:0,ippon:0,shido:0,hansoku:false}, weight:'', round:'', secondsTotal:180, running:false }; remaining=state.secondsTotal; fullRender(); };
 
-    // Ventana de pantalla externa
-    document.getElementById('openDisplay').onclick = () => {
-      childWin = window.open('', 'JudoDisplay', 'width=1280,height=720');
-      if(!childWin) return alert('Permite ventanas emergentes para abrir la pantalla.');
-      childWin.document.title = 'Marcador — Pantalla';
-      childWin.document.body.style.margin = '0';
-
-      // Añadir estilos de la app de forma segura (sin <script> embebidos)
-      const styleEl = childWin.document.createElement('style');
-      styleEl.textContent = document.querySelector('style').innerHTML + '
- html,body{height:100%}';
-      childWin.document.head.appendChild(styleEl);
-
-      // Contenedor del marcador remoto
-      const remote = childWin.document.createElement('section');
-      remote.className = 'scoreboard';
-      remote.id = 'remoteDisplay';
-      childWin.document.body.appendChild(remote);
-
-      // Script del hijo que escucha postMessage y renderiza
-      const s = childWin.document.createElement('script');
-      s.textContent = `
-        function scoreTxt(x){return x.ippon? 'IP' : (x.waza>0? x.waza+'W' : (x.yuko>0? x.yuko+'Y' : '0'));}
-        function cards(x){return '<div class=\"card yellow\"></div>'.repeat(x.shido) + (x.hansoku?'<div class=\"card red\"></div>':'');}
-        function render(st, remaining){
-          const el = document.getElementById('remoteDisplay');
-          el.innerHTML = \
-          '<div class=\"sb-top\">'+
-            '<div class=\"side blue\">'+
-              '<div class=\"name\"><div class=\"club\">'+(st.blue.club||'')+'</div><div class=\"abbr\">AZUL</div></div>'+
-              '<div class=\"points\">'+scoreTxt(st.blue)+'</div>'+
-              '<div class=\"penalties\">'+cards(st.blue)+'</div>'+
-            '</div>'+
-            '<div class=\"center\">'+
-              '<div class=\"meta\">'+st.round+' • <span class=\"weight\">'+st.weight+'</span></div>'+
-              '<div class=\"timer\" id=\"timerText\">'+(Math.floor(remaining/60))+':'+String(remaining%60).padStart(2,'0')+'</div>'+
-              '<div class=\"meta\" style=\"opacity:.9\">'+st.blue.name+' vs '+st.white.name+'</div>'+
-            '</div>'+
-            '<div class=\"side white\">'+
-              '<div class=\"name\"><div class=\"abbr\">BLANCO</div><div class=\"club\">'+(st.white.club||'')+'</div></div>'+
-              '<div class=\"points\">'+scoreTxt(st.white)+'</div>'+
-              '<div class=\"penalties\">'+cards(st.white)+'</div>'+
-            '</div>'+
-          '</div>'+
-          '<div class=\"sb-bottom\">'+
-            '<div>'+st.blue.name+'</div>'+
-            '<div>Tiempo '+(st.running?'🟢':'⏸️')+'</div>'+
-            '<div>'+st.white.name+'</div>'+
-          '</div>';
-        }
-        window.addEventListener('message', (e)=>{ if(!e.data||e.data.type!=='STATE') return; render(e.data.state, e.data.remaining); });
-        document.body.addEventListener('dblclick',()=>{ if(!document.fullscreenElement) document.body.requestFullscreen(); else document.exitFullscreen(); });
-      `;
+    document.getElementById('openDisplay').onclick = function(){
+      childWin = window.open('', 'JudoDisplay', 'width=1280,height=720'); if(!childWin){ alert('Permite ventanas emergentes.'); return; }
+      childWin.document.title='Marcador — Pantalla'; childWin.document.body.style.margin='0';
+      var styleEl = childWin.document.createElement('style'); styleEl.textContent = document.querySelector('style').innerHTML + '\n html,body{height:100%}'; childWin.document.head.appendChild(styleEl);
+      var remote = childWin.document.createElement('section'); remote.className='scoreboard'; remote.id='remoteDisplay'; childWin.document.body.appendChild(remote);
+      var s = childWin.document.createElement('script');
+      s.textContent = "function scoreTxt(x){return x.ippon? 'IP' : (x.waza>0? x.waza+'W' : (x.yuko>0? x.yuko+'Y' : '0'));}"
+        +"function cards(x){var y='';for(var i=0;i<x.shido;i++){y+='<div class=\\\"card yellow\\\"></div>'; } return y + (x.hansoku?'<div class=\\\"card red\\\"></div>':'');}"
+        +"function render(st,rem){var el=document.getElementById('remoteDisplay'); el.innerHTML='"+
+          "<div class=\\\"sb-top\\\">"+
+            "<div class=\\\"side blue\\\">"+
+              "<div class=\\\"name\\\"><div class=\\\"club\\\">'+(st.blue.club||'')+'</div><div class=\\\"abbr\\\">AZUL</div></div>"+
+              "<div class=\\\"points\\\">'+"+"scoreTxt(st.blue)"+"+'</div>"+
+              "<div class=\\\"penalties\\\">'+"+"cards(st.blue)"+"+'</div>"+
+            "</div>"+
+            "<div class=\\\"center\\\">"+
+              "<div class=\\\"meta\\\">'+st.round+' • <span class=\\\"weight\\\">'+st.weight+'</span></div>"+
+              "<div class=\\\"timer\\\" id=\\\"timerText\\\">'+(Math.floor(rem/60))+':'+String(rem%60).padStart(2,'0')+'</div>"+
+              "<div class=\\\"meta\\\" style=\\\"opacity:.9\\\">'+st.blue.name+' vs '+st.white.name+'</div>"+
+            "</div>"+
+            "<div class=\\\"side white\\\">"+
+              "<div class=\\\"name\\\"><div class=\\\"abbr\\\">BLANCO</div><div class=\\\"club\\\">'+(st.white.club||'')+'</div></div>"+
+              "<div class=\\\"points\\\">'+"+"scoreTxt(st.white)"+"+'</div>"+
+              "<div class=\\\"penalties\\\">'+"+"cards(st.white)"+"+'</div>"+
+            "</div>"+
+          "</div>"+
+          "<div class=\\\"sb-bottom\\\">"+
+            "<div>'+st.blue.name+'</div>"+
+            "<div>Tiempo '+(st.running? 'ON':'PAUSA')+'</div>"+
+            "<div>'+st.white.name+'</div>"+
+          "</div>'; }"
+        +"window.addEventListener('message',function(e){ if(!e.data||e.data.type!=='STATE') return; render(e.data.state, e.data.remaining); });"
+        +"document.body.addEventListener('dblclick',function(){ if(!document.fullscreenElement) document.body.requestFullscreen(); else document.exitFullscreen(); });";
       childWin.document.body.appendChild(s);
-
       broadcast();
     };
 
-    // Atajos de teclado
-    window.addEventListener('keydown', (e)=>{
-      if(e.code==='Space'){ e.preventDefault(); state.running ? stop() : start(); }
-      if(e.key==='b' || e.key==='B'){ remaining = Math.min(59*60+59, remaining + 10); updateTimerText(); persist(); broadcast(); }
-      if(e.key==='n' || e.key==='N'){ remaining = Math.max(0, remaining - 10); updateTimerText(); persist(); broadcast(); }
-    });
+    // Atajos
+    window.addEventListener('keydown', function(e){ if(e.code==='Space'){ e.preventDefault(); state.running? stop(): start(); } if(e.key==='b'||e.key==='B'){ remaining=Math.min(3599,remaining+10); updateTimerText(); persist(); broadcast(); } if(e.key==='n'||e.key==='N'){ remaining=Math.max(0,remaining-10); updateTimerText(); persist(); broadcast(); } });
 
-    // Sincronizar timer visual en el preview/display embebido
-    setInterval(()=>{ if(state.running){ updateTimerText(); } }, 200);
-
-    // Inicializar inputs de tiempo desde estado restaurado
-    (function initTimeInputs(){
-      const m = Math.floor(state.secondsTotal/60), s = state.secondsTotal%60;
-      document.getElementById('minutes').value = m; document.getElementById('seconds').value = s;
-      remaining = Math.min(remaining, state.secondsTotal);
-      updateTimerText();
-    })();
+    setInterval(function(){ if(state.running) updateTimerText(); }, 200);
+    (function initTimeInputs(){ var m=Math.floor(state.secondsTotal/60), s=state.secondsTotal%60; document.getElementById('minutes').value=m; document.getElementById('seconds').value=s; remaining=Math.min(remaining,state.secondsTotal); updateTimerText(); })();
   </script>
 </body>
 </html>
