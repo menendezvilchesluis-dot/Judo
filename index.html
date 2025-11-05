@@ -290,7 +290,14 @@
       const r = side.hansoku ? '<div class="card red"></div>' : '';
       return y + r;
     }
-    function escapeHtml(s=''){return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
+    function escapeHtml(s=''){
+      return String(s)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+    }{return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
 
     function broadcast(){
       // Enviar estado a la ventana externa si existe
